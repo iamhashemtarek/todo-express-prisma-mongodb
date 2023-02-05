@@ -1,7 +1,10 @@
+const { request } = require("express");
 const express = require("express");
 const morgan = require("morgan");
 const dotenv = require("dotenv").config({ path: "./config.env" });
 const tasksRoutes = require("./routes/tasksRoutes");
+const AppError = require("./utils/appError");
+const globalErrorHandler = require("./controllers/errorsController");
 
 process.on("uncaughtException", (err) => {
   console.log(err.name, err.message);
@@ -18,7 +21,18 @@ if (process.env.NODE_ENV == "development") {
 //routes
 app.use("/api/v1/tasks", tasksRoutes);
 
-const PORT = 8080;
+app.all("*", (req, res, next) => {
+  next(
+    new AppError(
+      `can not find this route ${req.originalUrl} on this server`,
+      404
+    )
+  );
+});
+app.use(globalErrorHandler);
+
+//start server
+const PORT = process.env.PORT || 9090;
 app.listen(PORT, () => {
   console.log(`app is listening on port ${PORT}`);
 });

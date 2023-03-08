@@ -2,6 +2,7 @@ const express = require("express");
 const morgan = require("morgan");
 const dotenv = require("dotenv").config({ path: "./config.env" });
 const tasksRoutes = require("./routes/tasksRoutes");
+const usersRoutes = require("./routes/usersRoutes");
 const AppError = require("./utils/appError");
 const globalErrorHandler = require("./controllers/errorsController");
 
@@ -19,6 +20,7 @@ if (process.env.NODE_ENV == "development") {
 }
 //routes
 app.use("/api/v1/tasks", tasksRoutes);
+app.use("/api/v1/users", usersRoutes);
 
 app.all("*", (req, res, next) => {
   next(

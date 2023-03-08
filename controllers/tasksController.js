@@ -1,17 +1,22 @@
 const catchAsync = require("../utils/catchAsync");
 const { PrismaClient } = require("@prisma/client");
+const AppError = require("../utils/appError");
 const prisma = new PrismaClient();
 
 exports.createTask = catchAsync(async (req, res, next) => {
   const { name, description, category } = req.body;
+  const userId = req.user.id;
+
   const task = await prisma.task.create({
     data: {
       name,
       description,
       category,
+      user: {
+        connect: { id: userId },
+      },
     },
   });
-
   res.status(201).json({
     status: "success",
     data: {
@@ -21,12 +26,20 @@ exports.createTask = catchAsync(async (req, res, next) => {
 });
 
 exports.getTask = catchAsync(async (req, res, next) => {
-  const id = req.params.id;
-  const task = await prisma.task.findUnique({
+  const id = req.params.id; //task id
+  const userId = req.user.id; //user id
+
+  const task = await prisma.task.findFirst({
+    // findFirst retuns null in case of zero objects
     where: {
-      id,
+      AND: [{ id }, { userId }],
     },
   });
+  console.log(!task);
+
+  if (!task) {
+    return next(new AppError("not found!", 404));
+  }
 
   res.status(200).json({
     status: "success",
@@ -37,7 +50,12 @@ exports.getTask = catchAsync(async (req, res, next) => {
 });
 
 exports.getAllTasks = catchAsync(async (req, res, next) => {
-  const tasks = await prisma.task.findMany();
+  const userId = req.user.id;
+  const tasks = await prisma.task.findMany({
+    where: {
+      userId,
+    },
+  });
 
   res.status(200).json({
     status: "success",
@@ -50,14 +68,20 @@ exports.getAllTasks = catchAsync(async (req, res, next) => {
 
 exports.updateTask = catchAsync(async (req, res, next) => {
   const id = req.params.id;
+  const userId = req.user.id; //user id
   delete req.body.completed; // there is a seperate route to update the 'completed property
   data = req.body;
-  const task = await prisma.task.update({
+
+  const task = await prisma.task.updateMany({
     where: {
-      id,
+      AND: [{ id }, { userId }],
     },
     data: data,
   });
+
+  if (!task.count) {
+    return next(new AppError("not found!", 404));
+  }
 
   res.status(200).json({
     status: "success",
@@ -69,11 +93,16 @@ exports.updateTask = catchAsync(async (req, res, next) => {
 
 exports.deleteTask = catchAsync(async (req, res, next) => {
   const id = req.params.id;
-  const task = await prisma.task.delete({
+  const userId = req.user.id; //user id
+  const task = await prisma.task.deleteMany({
     where: {
-      id,
+      AND: [{ id }, { userId }],
     },
   });
+
+  if (!task.count) {
+    return next(new AppError("not found!", 404));
+  }
   console.log(task);
   res.status(204).json({
     status: "success",
@@ -83,15 +112,20 @@ exports.deleteTask = catchAsync(async (req, res, next) => {
 
 exports.completed = catchAsync(async (req, res, next) => {
   const id = req.params.id;
+  const userId = req.user.id; //user id
   const { completed } = req.body;
-  const task = await prisma.task.update({
+  const task = await prisma.task.updateMany({
     where: {
-      id,
+      AND: [{ id }, { userId }],
     },
     data: {
       completed,
     },
   });
+
+  if (!task.count) {
+    return next(new AppError("not found!", 404));
+  }
 
   res.status(200).json({
     status: "success",

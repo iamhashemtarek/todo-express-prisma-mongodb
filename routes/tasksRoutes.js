@@ -14,13 +14,13 @@ const router = express.Router();
 
 router
   .route("/")
-  .get(protect, restrictTo("ADMIN"), getAllTasks) 
-  .post(createTask);
+  .get(protect, restrictTo("USER"), getAllTasks)
+  .post(protect, restrictTo("USER"), createTask);
 router
   .route("/:id")
-  .get(getTask)
-  .delete(deleteTask)
-  .patch(updateTask)
-  .post(completed);
+  .get(protect, restrictTo("USER"), getTask)
+  .delete(protect, restrictTo("USER"), deleteTask)
+  .patch(protect, restrictTo("USER"), updateTask)
+  .post(protect, restrictTo("USER"), completed);
 
 module.exports = router;

@@ -198,7 +198,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
 
   //get user based on token
   console.log(hashedResetToken);
-  const user = await prisma.user.findMany({
+  const user = await prisma.user.findFirst({
     where: {
       passwordResetToken: hashedResetToken,
     },
@@ -207,7 +207,7 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   if (!user || Date.now() > user.passwordResetExpires) {
     return next(new AppError("token is invalid or has expired", 400));
   }
-  
+
   // updating the password in the db
   await prisma.user.updateMany({
     where: {

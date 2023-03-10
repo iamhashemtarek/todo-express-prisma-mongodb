@@ -141,12 +141,20 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
-  const resetTokenExpires = Date.now() + 10 * 60 * 1000; //sec * min * 1000 (10 min)
+  const resetTokenExpires = Date.now() + 60 * 10 * 1000; //sec * min * 1000 (10 min)
 
-  user.passwordResetToken = hashedResetToken;
-  user.passwordResetExpires = resetTokenExpires;
+  // store token in db
+  await prisma.user.update({
+    where: {
+      email,
+    },
+    data: {
+      passwordResetToken: hashedResetToken,
+      passwordResetExpires: resetTokenExpires,
+    },
+  });
 
-  // email configurations
+  //email configurations
   const resetUrl = `${req.protocol}://${req.get(
     "host"
   )}/api/v1/users/resetPassword/${resetToken}`;
@@ -176,19 +184,21 @@ exports.forgotPassword = catchAsync(async (req, res, next) => {
 
 //receive token (as a new password)
 exports.resetPassword = catchAsync(async (req, res, next) => {
-  //extract pass from req body and hashing it
+  //extract new password from req body and hashing it
   const { password } = req.body;
   const salt = await bcryptjs.genSalt();
   const hashedPass = await bcryptjs.hash(password, salt);
 
   //extract token from url
-  const resetToken = req.params.resetToken;
+  const { resetToken } = req.params;
   const hashedResetToken = crypto
     .createHash("sha256")
     .update(resetToken)
     .digest("hex");
+
   //get user based on token
-  const user = await prisma.user.findUnique({
+  console.log(hashedResetToken);
+  const user = await prisma.user.findMany({
     where: {
       passwordResetToken: hashedResetToken,
     },
@@ -197,8 +207,18 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
   if (!user || Date.now() > user.passwordResetExpires) {
     return next(new AppError("token is invalid or has expired", 400));
   }
+  
+  // updating the password in the db
+  await prisma.user.updateMany({
+    where: {
+      passwordResetToken: hashedResetToken,
+    },
+    data: {
+      password: hashedPass,
+    },
+  });
 
-  user.password = hashedPass;
+  //jwt token generation
   const token = generateToken(user.id);
 
   res.status(200).json({

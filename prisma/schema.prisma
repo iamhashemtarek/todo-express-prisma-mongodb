@@ -14,8 +14,8 @@ model User {
   password             String
   role                 Role     @default(USER)
   tasks                Task[]
-  passwordResetToken   String
-  passwordResetExpires DateTime
+  passwordResetToken   String?
+  passwordResetExpires Int?
 }
 
 model Task {

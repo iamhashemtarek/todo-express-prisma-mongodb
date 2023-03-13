@@ -21,12 +21,16 @@ async function comparePass(plainPass, hashed) {
   return await bcryptjs.compare(plainPass, hashed); // retuen true/false
 }
 
+async function hashPassword(plainPassword) {
+  const salt = await bcryptjs.genSalt();
+  const hashedPassword = await bcryptjs.hash(plainPassword, salt);
+  return hashedPassword;
+}
 exports.signup = catchAsync(async (req, res, next) => {
   const { name, email, password } = req.body;
 
   //hasing user password before storing it in the db
-  const salt = await bcryptjs.genSalt();
-  const hashedPass = await bcryptjs.hash(password, salt);
+  const hashedPass = await hashPassword(password);
   //create a new user
   const user = await prisma.user.create({
     data: {
@@ -107,7 +111,7 @@ exports.protect = catchAsync(async (req, res, next) => {
     );
   }
 
-  req.user = user; //will be used in restrictTo middleware
+  req.user = user; // store logged-in user in req object
   next();
 });
 
@@ -225,5 +229,51 @@ exports.resetPassword = catchAsync(async (req, res, next) => {
     status: "success",
     token,
     message: "password updated successfuly",
+  });
+});
+
+//update user password
+exports.updatePassword = catchAsync(async (req, res, next) => {
+  const { oldPassword } = req.body;
+  const { newPassword } = req.body;
+  const { id } = req.params;
+
+  const user = await prisma.user.findUnique({
+    where: {
+      id,
+    },
+  });
+
+  if (!user) {
+    return next(new AppError("there is no user belogns to id", 404));
+  }
+
+  // if (!newPassword || !oldPassword) {
+  //   return next(
+  //     new AppError("please provide your current password and new password", 401)
+  //   );
+  // }
+
+  if (!(await comparePass(oldPassword, user.password))) {
+    return next(new AppError("your current password is wrong", 401)); // 401: bad request
+  }
+
+  const hashedPass = await hashPassword(newPassword);
+
+  await prisma.user.update({
+    where: {
+      id: user.id,
+    },
+    data: {
+      password: hashedPass,
+    },
+  });
+
+  const token = generateToken(user.id);
+
+  res.status(200).json({
+    status: "success",
+    token,
+    message: "password updated successfully",
   });
 });
